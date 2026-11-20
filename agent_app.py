@@ -231,7 +231,7 @@ st.markdown("""
     }
 
     /* Text Areas & Text Inputs */
-    textarea, input[type="text"] {
+    textarea, input[type="text"], input[type="password"] {
         background-color: #090e1a !important;
         color: #38bdf8 !important;
         border: 1.5px solid #334155 !important;
@@ -239,7 +239,7 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace !important;
         font-size: 0.95rem !important;
     }
-    textarea:focus, input[type="text"]:focus {
+    textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
         border-color: #38bdf8 !important;
         box-shadow: 0 0 12px rgba(56, 189, 248, 0.25) !important;
     }
@@ -381,12 +381,19 @@ active_engine_label = "AMD VIVADO 2022.2" if eda_env["has_vivado"] else ("YOSYS 
 # SIDEBAR: API CONTROLS, VIVADO IDE LAUNCHER & ZIP EXPORT
 # ==============================================================================
 st.sidebar.markdown("### SYSTEM CONFIGURATION")
-user_api_key = st.sidebar.text_input("Groq API Key", type="password", placeholder="gsk_...")
+
+env_api_key = os.environ.get("GROQ_API_KEY", "").strip()
+if env_api_key:
+    st.sidebar.success("● Groq API Key: Auto-Initialized")
+    custom_key = st.sidebar.text_input("Override API Key (Optional)", type="password", placeholder="Leave blank to use server key")
+    user_api_key = custom_key.strip() if custom_key.strip() else env_api_key
+else:
+    user_api_key = st.sidebar.text_input("Groq API Key", type="password", placeholder="gsk_...").strip()
 
 available_models = []
-if user_api_key.strip():
+if user_api_key:
     try:
-        client = Groq(api_key=user_api_key.strip())
+        client = Groq(api_key=user_api_key)
         models_data = client.models.list()
         available_models = [
             m.id for m in models_data.data 
@@ -585,13 +592,13 @@ with col_btn3:
         )
 
 if run_clicked:
-    if not user_api_key.strip():
+    if not user_api_key:
         st.error("Authentication Required: Enter your Groq API Key in the left sidebar.")
     else:
         with st.spinner("Executing RTL generation and batch EDA synthesis..."):
             success = run_autonomous_loop(
                 user_requirement=user_prompt,
-                api_key=user_api_key.strip(),
+                api_key=user_api_key,
                 model_name=model_choice,
                 target_luts=target_luts,
                 max_iterations=max_retries
@@ -696,11 +703,11 @@ with st.form("architect_console_form", clear_on_submit=True):
 active_query = quick_query if quick_query else (typed_query.strip() if submitted and typed_query.strip() else None)
 
 if active_query:
-    if not user_api_key.strip():
+    if not user_api_key:
         st.error("Groq API Key required in the left sidebar.")
     else:
         with st.spinner("Principal Architect analyzing RTL & PPA telemetry..."):
-            ask_architect_copilot(active_query, user_api_key.strip(), model_choice)
+            ask_architect_copilot(active_query, user_api_key, model_choice)
 
 if st.session_state.chat_history:
     for msg in st.session_state.chat_history:
@@ -733,4 +740,3 @@ st.markdown(f"""
     SILICONFORGE // AUTONOMOUS RTL &amp; EDA PLATFORM &nbsp;•&nbsp; ENGINE: {active_engine_label} &nbsp;•&nbsp; IEEE 1800 SYSTEMVERILOG
 </div>
 """, unsafe_allow_html=True)
-
